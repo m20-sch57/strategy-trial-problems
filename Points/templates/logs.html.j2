@@ -3,17 +3,67 @@
 {% block content %}
     <body>
         <div id="data" data-logs='{{ jsonlogs }}'></div>
-        <p>First strategy: {{ res1 }}</p>
-        <p>Second strategy: {{ res2 }}</p>
+        <style>
+            #logsInput {
+                display: flex;
+                justify-content: center;
+            }
+
+            #logsRange,
+            #logsNumber,
+            #logsButton {
+                display: flex;
+            }
+
+            table {
+                border-collapse:collapse;
+                font-size: 20px;
+                background: #f2f2f2;
+            }
+
+            td {
+                text-align: center;
+                padding: 5px;
+                border: 1px solid #8e8e8e;
+            }
+
+            tr:hover {
+                background: #e8e8e8;
+            }
+
+            .red {
+                background: #ff000033;
+            }
+            .blue {
+                background: #0000ff2b;
+            }
+        </style>
+
+        <table id="resultTable">
+            <tr>
+                <td class="red">First strategy</td>
+                <td class="blue">Second strategy</td>
+            </tr>
+            <tr>
+                <td>{{ res1 }}</td>
+                <td>{{ res2 }}</td>
+            </tr>
+        </table>
+        <svg id="logsWindow">
+            {% for i in range(logs|length) %}
+                <g id="canvas{{ i }}">
+                    <g id="polygons{{ i }}"></g>
+                    <g id="segments{{ i }}"></g>
+                    <g id="points{{ i }}"></g>
+            </g>
+            {% endfor %}
+        </svg>
         <br>
-        {% for i in range(logs|length) %}
-            <svg id="canvas{{ i }}">
-                <g id="polygons{{ i }}"></g>
-                <g id="segments{{ i }}"></g>
-                <g id="points{{ i }}"></g>
-            </svg>
-            <p></p><br>
-        {% endfor %}
+        <div id="logsInput">
+            <input id="logsRange" type="range" min="0" max="0" step="1" value="0"> 
+            <input id="logsNumber" type="number" min="0" max="0" value="0"> 
+            <input id="logsButton" type="button" value="play">
+        </div>
 
         <script>
             let svgNS = "http://www.w3.org/2000/svg";
@@ -25,13 +75,90 @@
             let segmentColor = {R: "red", G: "blue"};
             let polygonColor = {R: "#ffc4c4", G: "#cdcdff"}
 
+            let resultTable = document.getElementById("resultTable");
+            let logsWindow = document.getElementById("logsWindow");
+            let logsRange = document.getElementById("logsRange");
+            let logsNumber = document.getElementById("logsNumber");
+            let logsButton = document.getElementById("logsButton");
+
             let logs = JSON.parse(document.getElementById('data').dataset.logs);
 
             for (let i = 0; i < logs.length; i++) {
                 drawField(document.getElementById('canvas' + i),
                           document.getElementById('polygons' + i),
                           document.getElementById('segments' + i),
-                          document.getElementById('points' + i), logs[i])
+                          document.getElementById('points' + i), logs[i]);
+                hideGroup(i);
+            }
+
+            logsRange.setAttribute("max", logs.length - 1);
+            logsNumber.setAttribute("max", logs.length - 1);
+            let active = 0; showGroup(active);
+            let isPlay = false;
+            logsRange.oninput = function() {
+                hideGroup(active);
+                active = logsRange.value;
+                showGroup(active);
+                logsNumber.value = active;
+                isPlay = false;
+            }
+            logsNumber.oninput = function() {
+                hideGroup(active);
+                active = logsNumber.value;
+                showGroup(active);
+                logsRange.value = active;
+                isPlay = false;
+            }
+            logsButton.onclick = play;
+
+            function animate({timing, draw, duration}) {
+                // Taken from https://learn.javascript.ru
+                let start = performance.now();
+
+                    requestAnimationFrame(function animate(time) {
+                    // timeFraction изменяется от 0 до 1
+                    let timeFraction = (time - start) / duration;
+                    if (timeFraction > 1) timeFraction = 1;
+
+                    // вычисление текущего состояния анимации
+                    let progress = timing(timeFraction);
+
+                    draw(progress); // отрисовать её
+
+                    if (timeFraction < 1) {
+                       requestAnimationFrame(animate);
+                    }
+                });
+            }
+
+            function play() {
+                isPlay = true;
+                let nowProgress = active / (logs.length - 1);
+
+                let duration = 3000 * (1 - nowProgress);
+                let timing = time => {
+                    return nowProgress + time * (1 - nowProgress);
+                };
+                let draw = progress => {
+                    if (isPlay) {
+                        hideGroup(active);
+                        active = Math.trunc(progress * (logs.length - 1));
+                        showGroup(active);
+                        logsNumber.value = active;
+                        logsRange.value = active;
+                    }
+                }
+                animate({timing, draw, duration});
+            }
+
+            function showGroup(i) {
+                let group = document.getElementById("canvas" + i);
+                if (group) group.setAttribute("visibility", "visible");
+            }
+
+            function hideGroup(i) {
+                let group = document.getElementById("canvas" + i);
+                if (group) group.setAttribute("visibility", "hidden");
             }
        
             function len(x) {
@@ -51,8 +178,10 @@
                 let sizeX = len(field);
                 let sizeY = len(field[0]);
 
-                canvas.style.width = (sizeX + 1) * gridStep;
-                canvas.style.height = (sizeY + 1) * gridStep;
+            logsWindow.style.width = (sizeX + 1) * gridStep;
+            logsWindow.style.height = (sizeY + 1) * gridStep;
+            logsInput.style.width = (sizeX + 1) * gridStep;
+            resultTable.style.width = (sizeX + 1) * gridStep;
 
                 function drawPoint(x, y, c) {
                     addElement(points, "circle", {
