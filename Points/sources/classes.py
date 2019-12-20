@@ -16,11 +16,12 @@ class GameState:
 
 
 class Turn:
-    def __init__(self, x, y):
+    def __init__(self, x=0, y=0, debug=''):
         self.x, self.y = x, y
+        self.debug = debug
     
     def toString(self):
-        return json.dumps([self.x, self.y])
+        return json.dumps([self.x, self.y, self.debug])
 
     def fromString(self, s):
-        self.x, self.y = json.loads(s)[0], json.loads(s)[1]
+        self.x, self.y, self.debug = json.loads(s)[0], json.loads(s)[1], json.loads(s)[2]

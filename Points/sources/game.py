@@ -8,7 +8,7 @@ from server.commonFunctions import problemFolder
 
 FIELD_SIZE = 10
 MaxScore = 100
-TimeLimit = 1
+TimeLimit = 2
 TurnLimit = 1000
 DIR = [(0, 1), (1, 0), (-1, 0), (0, -1)]
 
@@ -87,24 +87,20 @@ def gameStateRep(full: FullGameState, playerId: int) -> GameState:
 class Logs:
     def __init__(self):
         self.logs = []
+        self.debug = []
 
     def processResults(self, results):
         self.results = results
 
-    def update(self, game: FullGameState):
+    def update(self, game: FullGameState, debug: str):
         new_field = [['.' for i in range(FIELD_SIZE)] for i in range(FIELD_SIZE)]
         for i in range(FIELD_SIZE):
             for j in range(FIELD_SIZE):
                 new_field[i][j] = [game.field[i][j]]
-                # if [i, j] == fullTurn:
-                # new_field[i][j].append(1)
         self.logs.append(new_field)
-        # print("UPDATED")
-        # print(new_field)
-        # print()
+        self.debug.append(debug)
 
     def show(self, probId, baseParams):
-        # print(self.logs)
         with app.app_context():
             logPath = os.path.join('problems', problemFolder(probId), 'logs.html.j2')
             data = render_template(
@@ -114,20 +110,23 @@ class Logs:
                 res1 = self.results[0].goodStr(), 
                 res2 = self.results[1].goodStr(), 
                 strId = problemFolder(probId), 
+                debug = self.debug,
+                jsondebug = json.dumps(self.debug),
                 **baseParams
             )
         return data
 
 
 class Turn:
-    def __init__(self, x=0, y=0):
+    def __init__(self, x=0, y=0, debug=''):
         self.x, self.y = x, y
+        self.debug = debug
     
     def toString(self):
-        return json.dumps([self.x, self.y])
+        return json.dumps([self.x, self.y, self.debug])
 
     def fromString(self, s):
-        self.x, self.y = json.loads(s)[0], json.loads(s)[1]
+        self.x, self.y, self.debug = json.loads(s)[0], json.loads(s)[1], json.loads(s)[2]
 
 
 def nextPlayer(playerId: int) -> int:
@@ -145,7 +144,7 @@ def makeTurn(gameState: FullGameState, playerId: int, turn: Turn, logs = None) -
     gameState.field[x][y] = c
     gameState.color_area(c)
     if logs != None:
-        logs.update(gameState)
+        logs.update(gameState, turn.debug)
     if gameState.game_finished():
         score = gameState.counter()
         return [

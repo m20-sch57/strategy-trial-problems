@@ -2,11 +2,15 @@
 
 {% block content %}
     <body>
-        <div id="data" data-logs='{{ jsonlogs }}'></div>
+        <div id="data" data-logs='{{ jsonlogs }}' data-debug='{{ jsondebug }}'></div>
         <style>
             #logsInput {
                 display: flex;
                 justify-content: center;
+            }
+
+            #logsRange {
+                width: 160px;
             }
 
             #logsRange,
@@ -31,11 +35,45 @@
                 background: #e8e8e8;
             }
 
+            .code {
+                font-family: Consolas, monospace;
+                font-size: 14px;
+                text-align: left;
+            }
+
+            .debugTable {
+                width: 600px;
+                margin-bottom: 10px;
+            }
+
             .red {
                 background: #ff000033;
             }
             .blue {
                 background: #0000ff2b;
+            }
+
+            .debugTableActions {
+                width: 600px;
+                height: 25px;
+            }
+
+            .debugTableActions button {
+                float: right;
+                height: 100%;
+                outline: 0;
+                border: 1px solid #8e8e8e;
+                border-bottom-width: 0;
+                border-left-width: 0;
+                background: #dddddd
+            }
+
+            .debugTableActions button:hover {
+                background: #cacaca;
+            }
+
+            .debugTableActions button:last-child {
+                border-left-width: 1;
             }
         </style>
 
@@ -55,7 +93,7 @@
                     <g id="polygons{{ i }}"></g>
                     <g id="segments{{ i }}"></g>
                     <g id="points{{ i }}"></g>
-            </g>
+                </g>
             {% endfor %}
         </svg>
         <br>
@@ -64,8 +102,135 @@
             <input id="logsNumber" type="number" min="0" max="0" value="0"> 
             <input id="logsButton" type="button" value="play">
         </div>
+        <div class="debugTableActions">
+            <button id="toggleAll-1">Hide All</button>
+            <button id="toggleEmpty-1">Hide Empty</button>
+            <button id="download-1">Download</button>
+        </div>
+        <table class="debugTable" id="debugTable-1">
+            <tr head>
+                <td colspan="2" class="red">First strategy</td>
+            </tr>
+            <tr>
+                <td width="50">Turn</td>
+                <td>Output</td>
+            </tr>
+            {% for i in range(debug|length // 2) %}
+            <tr>
+                <td>{{ 2*i }}</td>
+                <td class="code">{{ debug[2*i] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <div class="debugTableActions">
+            <button id="toggleAll-2">Hide All</button>
+            <button id="toggleEmpty-2">Hide Empty</button>
+            <button id="download-2">Download</button>
+        </div>
+        <table class="debugTable" id="debugTable-2">
+            <tr head>
+                <td colspan="2" class="blue">Second strategy</td>
+            </tr>
+            <tr>
+                <td width="50">Turn</td>
+                <td>Output</td>
+            </tr>
+            {% for i in range(debug|length // 2) %}
+            <tr>
+                <td>{{ 2*i + 1 }}</td>
+                <td class="code">{{ debug[2*i + 1] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
 
         <script>
+            // Debug output
+            for (let i of [1, 2]) {
+                let toggleAllButton = document.getElementById("toggleAll-" + i);
+                let toggleEmptyButton = document.getElementById("toggleEmpty-" + i);
+                let downloadButton = document.getElementById("download-" + i);
+                let debugTable = document.getElementById("debugTable-" + i)
+
+                let isAllHidden = false;
+                let isEmptyHidden = false;
+
+                function draw() {
+                    if (isAllHidden) {
+                        toggleAllButton.innerText = "Show all";
+                        hideElem(toggleEmptyButton);
+                    } else {
+                        toggleAllButton.innerText = "Hide all";
+                        showElem(toggleEmptyButton);
+                    }
+                    if (isEmptyHidden) {
+                        toggleEmptyButton.innerText = "Show empty";
+                    } else {
+                        toggleEmptyButton.innerText = "Hide empty";
+                    }
+                    for (let row of debugTable.querySelectorAll("tr")) {
+                        if (!row.hasAttribute("head")) {
+                            if (isAllHidden | (!isAllHidden && isEmptyHidden && !isEmpty(row))) {
+                                hideElem(row);
+                            } else {
+                                showElem(row);
+                            }
+                        }
+                    }
+                }
+
+                function toggleAll() {
+                    isAllHidden = !isAllHidden;
+                    draw();
+                }
+
+                function toggleEmpty() {
+                    isEmptyHidden = !isEmptyHidden;
+                    draw();
+                }
+
+                function isEmpty(td) {
+                    return Boolean(td.lastElementChild.innerText)
+                }
+
+                toggleAllButton.onclick = toggleAll;
+                toggleEmptyButton.onclick = toggleEmpty;
+
+                function download(filename, text) {
+                    // Taken from https://ourcodeworld.com/articles/read/189/how-to-create-a-file-and-generate-a-download-with-javascript-in-the-browser-without-a-server
+                    var element = document.createElement('a');
+                    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+                    element.setAttribute('download', filename);
+
+                    element.style.display = 'none';
+                    document.body.appendChild(element);
+
+                    element.click();
+
+                    document.body.removeChild(element);
+                }
+
+                function downloadLogs() {
+                    let filename = "PointsLog.json";
+                    let text = JSON.stringify(
+                        {
+                            fieldLog: JSON.parse(document.getElementById('data').dataset.logs),
+                            outputLog: JSON.parse(document.getElementById('data').dataset.debug)
+                        });
+                    download(filename, text);
+                }
+
+                downloadButton.onclick = downloadLogs;
+            }
+
+            function hideElem(elem) {
+                elem.style.display = "none";
+            }
+
+            function showElem(elem) {
+                elem.style.display = "";
+            }
+
+            // Field drawing
             let svgNS = "http://www.w3.org/2000/svg";
             let xlinkNS = "http://www.w3.org/1999/xlink";
 
